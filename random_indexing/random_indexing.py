@@ -9,6 +9,8 @@ import numpy as np
 from collections import defaultdict
 import math
 import random
+import pickle
+import argparse
 
 def compute_idf(data, min_count):
     """
@@ -25,6 +27,12 @@ def compute_idf(data, min_count):
     for feature in counts:
         counts[feature]=math.sqrt(len(data)/counts[feature])
     return counts
+
+def normalize_vector(vector):
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return np.array([0.] * len(vector))
+    return np.array(vector) / norm
 
 def initialize_vectors(features, idf, dim, seeds):
     """
@@ -44,28 +52,49 @@ def initialize_vectors(features, idf, dim, seeds):
     return vectors
 
 def train_vectors(data, vectors):
+    """
+    For each feature in each line, add the feature to all other features. Conceptually,
+    each co-occurance of two features moves the two features closer together.
+    """
+    trained_vectors=vectors.copy()
 
-def save():
+    for line in data:
+        line=line.split()
+        line=[feature for feature in line if feature in vectors]
+        for feature_1 in line:
+            for feature_2 in line:
+                if feature_1 != feature_2:
+                    trained_vectors[feature_2]+=vectors[feature_1]
+        for feature in trained_vectors:
+            trained_vectors[feature] = normalize_vector(trained_vectors[feature])
+        return trained_vectors
+
+def save(vectors, out_dir, file_name):
+    if not out_dir.endswith('/'):
+        out_dir+='/'
+    with open(out_dir+file_name, 'wb') as out:
+        pickle.dump(vectors, out, protocol=pickle.HIGHEST_PROTOCOL)
 
 def get_data(path):
     f = open(path,'r')
     return f.read().split('\n')
 
-def train(in_file, out_dir, save_name='ri_index', seeds=20, dim=500, min_count=10):
-    """
-    in_file = File containing co-occurrence data. Expected format is one line
-    per entry with a space between each item. This can be anything from citations
-    from articles to text. Also, this is expecting that tokenization and all other
-    necessary cleanup has been performed.
+def train_ri_cooccur(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10):
+    data=get_data(in_file)
+    idf=compute_idf(data, min_count)
+    vectors = initialize_vectors(idf.keys(), idf, dim, seeds)
 
-    out_dir = Location to store the results.
+    for i in range(2):
+        vectors = train_vectors(data, vectors) # Performs two training cycles
 
-    save_name = Optional name of the trained vectors.
+    save(vectors, out_dir, file_name)
 
-    seeds = The number of random seeds used for random projection. The minimum
-    should be 10.
-
-    dim = Dimensionality for the term vectors. Should be 500-1000 (or greater)
-
-    min_count = Threshold for building vectors. Anything less than min_count is discarded.
-    """
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-in','--in_file', help='Input director and file name.', required=True)
+    parser.add_argument('-out','--out_dir', help='Location to store the results.', required=True)
+    parser.add_argument('-name','--file_name', help='Name for the index when storing.', required=False, default='ri_index')
+    parser.add_argument('-s','--seeds', help='Number of seeds for random projection indexing. Should be 10-50.', required=False, default=20)
+    parser.add_argument('-d','--dim', help='Number of dimensions for vectors. Range should be 500-1000', required=False, default=500)
+    parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
+    args = vars(parser.parse_args())
