@@ -12,6 +12,13 @@ import random
 import pickle
 import argparse
 
+import sys
+sys.path.append('../')
+from utils import commons
+from utils import store
+from utils import vector_utils
+
+
 def compute_idf(data, min_count):
     """
     IDF is used to weight the term vectors.
@@ -27,12 +34,6 @@ def compute_idf(data, min_count):
     for feature in counts:
         counts[feature]=math.sqrt(len(data)/counts[feature])
     return counts
-
-def normalize_vector(vector):
-    norm = np.linalg.norm(vector)
-    if norm == 0:
-        return np.array([0.] * len(vector))
-    return np.array(vector) / norm
 
 def initialize_vectors(features, idf, dim, seeds):
     """
@@ -66,28 +67,18 @@ def train_vectors(data, vectors):
                 if feature_1 != feature_2:
                     trained_vectors[feature_2]+=vectors[feature_1]
         for feature in trained_vectors:
-            trained_vectors[feature] = normalize_vector(trained_vectors[feature])
+            trained_vectors[feature] = vector_utils.normalize_vector(trained_vectors[feature])
         return trained_vectors
 
-def save(vectors, out_dir, file_name):
-    if not out_dir.endswith('/'):
-        out_dir+='/'
-    with open(out_dir+file_name, 'wb') as out:
-        pickle.dump(vectors, out, protocol=pickle.HIGHEST_PROTOCOL)
-
-def get_data(path):
-    f = open(path,'r')
-    return f.read().split('\n')
-
-def train_ri_cooccur(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10):
-    data=get_data(in_file)
+def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10):
+    data=commons.get_data(in_file)
     idf=compute_idf(data, min_count)
     vectors = initialize_vectors(idf.keys(), idf, dim, seeds)
 
     for i in range(2):
         vectors = train_vectors(data, vectors) # Performs two training cycles
 
-    save(vectors, out_dir, file_name)
+    store.pickle_dict(vectors, out_dir, file_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -98,3 +89,5 @@ if __name__ == "__main__":
     parser.add_argument('-d','--dim', help='Number of dimensions for vectors. Range should be 500-1000', required=False, default=500)
     parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
     args = vars(parser.parse_args())
+
+    train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'])
