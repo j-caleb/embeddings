@@ -18,11 +18,15 @@ from utils import commons
 from utils import store
 from utils import vector_utils
 
+print_every = 100000
+print_status = True
 
 def compute_idf(data, min_count):
     """
     IDF is used to weight the term vectors.
     """
+    if print_status:
+        print('Computing IDF')
     counts = defaultdict(float)
     for line in data:
         line = set(line.split())
@@ -43,9 +47,13 @@ def initialize_vectors(features, idf, dim, seeds):
     randomly. This performs the random projection.
     """
     vectors = {}
-    for feature in features:
+
+    for i in range(len(features)):
+        if print_status and i % print_every == 0:
+            print('Initializing ' + str(i))
+        feature = features[i]
         vector=np.zeros(dim)
-        sample=random.sample(dim,seeds) # Grab the n random elements for random projection
+        sample=random.sample(range(0,dim),seeds) # Grab the n random elements for random projection
         for index in sample:
             vector[index]=random.choice([-1.0,1.0]) # Set each element to +1 or -1 for random projection
         vector=vector * idf[feature] # Weight based on IDF
@@ -58,9 +66,10 @@ def train_vectors(data, vectors):
     each co-occurance of two features moves the two features closer together.
     """
     trained_vectors=vectors.copy()
-
-    for line in data:
-        line=line.split()
+    for i in range(len(data)):
+        if print_status and i % print_every == 0:
+            print('Processed ' + str(i))
+        line = data[i].split()
         line=[feature for feature in line if feature in vectors]
         for feature_1 in line:
             for feature_2 in line:
@@ -73,7 +82,7 @@ def train_vectors(data, vectors):
 def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10):
     data=commons.get_data(in_file)
     idf=compute_idf(data, min_count)
-    vectors = initialize_vectors(idf.keys(), idf, dim, seeds)
+    vectors = initialize_vectors(list(idf.keys()), idf, dim, seeds)
 
     for i in range(2):
         vectors = train_vectors(data, vectors) # Performs two training cycles
@@ -82,12 +91,16 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-in','--in_file', help='Input director and file name.', required=True)
-    parser.add_argument('-out','--out_dir', help='Location to store the results.', required=True)
+    parser.add_argument('-in','--in_file', help='Input director and file name.', required=False, default='')
+    parser.add_argument('-out','--out_dir', help='Location to store the results.', required=False, default='')
     parser.add_argument('-name','--file_name', help='Name for the index when storing.', required=False, default='ri_index')
     parser.add_argument('-s','--seeds', help='Number of seeds for random projection indexing. Should be 10-50.', required=False, default=20)
     parser.add_argument('-d','--dim', help='Number of dimensions for vectors. Range should be 500-1000', required=False, default=500)
     parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
     args = vars(parser.parse_args())
 
-    train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'])
+    if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
+        from config_files.ri_config import  config
+        train(config['in_file'],config['out_dir'])
+    else:
+        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'])
