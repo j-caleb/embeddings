@@ -5,5 +5,5 @@ config file settings simply exectute random_indexing.py with no arguments.
 
 config = {}
 
-config['in_file']='/Users/joshuacgoodwin/Documents/github_projects/w2v_training_shuf.txt'
-config['out_dir']='/Users/joshuacgoodwin/Documents/github_projects/models/'
+config['in_file']="F:\\github_projects\\data\\embeddings\\medline_sentences\\w2v_training_shuf.txt"
+config['out_dir']="F:\\github_projects\\data\\embeddings\\medline_sentences\\models\\"

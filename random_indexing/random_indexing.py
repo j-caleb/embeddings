@@ -97,7 +97,13 @@ if __name__ == "__main__":
     parser.add_argument('-s','--seeds', help='Number of seeds for random projection indexing. Should be 10-50.', required=False, default=20)
     parser.add_argument('-d','--dim', help='Number of dimensions for vectors. Range should be 500-1000', required=False, default=500)
     parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
+    parser.add_argument('-p','--print_status', help='Print progress during execution. False is off. Default is True', required=False, default=True)
+    parser.add_argument('-pe','--print_every', help='How often to print status during exectuation. Default is every 500k lines.', required=False, default=500000)
+
     args = vars(parser.parse_args())
+
+    print_every = args['print_every']
+    print_status = args['print_status']
 
     if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
         from config_files.ri_config import  config
