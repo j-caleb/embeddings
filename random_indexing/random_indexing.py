@@ -6,7 +6,6 @@ dimensional vectors. This is a method for generating embeddings similar to word2
 """
 
 import numpy as np
-from collections import defaultdict
 import math
 import random
 import pickle
@@ -15,31 +14,13 @@ import argparse
 import sys
 sys.path.append('../')
 from utils import commons
-from utils import store
 from utils import vector_utils
+from utils import text_utils
 
 print_every = 100000
 print_status = True
 
-def compute_idf(data, min_count):
-    """
-    IDF is used to weight the term vectors.
-    """
-    if print_status:
-        print('Computing IDF')
-    counts = defaultdict(float)
-    for line in data:
-        line = set(line.split())
-        for feature in line:
-            counts[feature]+=1
-    delete = [feature for feature in counts if counts[feature] < min_count]
-    for feature in delete:
-        del counts[feature]
-    for feature in counts:
-        counts[feature]=math.sqrt(len(data)/counts[feature])
-    return counts
-
-def initialize_vectors(features, idf, dim, seeds):
+def initialize_vectors(valid_tokens, dim, seeds):
     """
     This creates the initial random projection for each feature. You create initial
     vector with dimensionality dim. Dim should be in the range 500-1000. You then
@@ -48,16 +29,15 @@ def initialize_vectors(features, idf, dim, seeds):
     """
     vectors = {}
 
-    for i in range(len(features)):
+    for i in range(len(valid_tokens)):
         if print_status and i % print_every == 0:
             print('Initializing ' + str(i))
-        feature = features[i]
+        token = valid_tokens[i]
         vector=np.zeros(dim)
         sample=random.sample(range(0,dim),seeds) # Grab the n random elements for random projection
         for index in sample:
             vector[index]=random.choice([-1.0,1.0]) # Set each element to +1 or -1 for random projection
-        vector=vector * idf[feature] # Weight based on IDF
-        vectors[feature]=vector
+        vectors[token]=vector
     return vectors
 
 def train_vectors(data, vectors):
@@ -65,29 +45,55 @@ def train_vectors(data, vectors):
     For each feature in each line, add the feature to all other features. Conceptually,
     each co-occurance of two features moves the two features closer together.
     """
-    trained_vectors=vectors.copy()
+    trained_vectors=copy.deepcopy(vectors)
     for i in range(len(data)):
         if print_status and i % print_every == 0:
             print('Processed ' + str(i))
         line = data[i].split()
-        line=[feature for feature in line if feature in vectors]
-        for feature_1 in line:
-            for feature_2 in line:
-                if feature_1 != feature_2:
-                    trained_vectors[feature_2]+=vectors[feature_1]
-        for feature in trained_vectors:
-            trained_vectors[feature] = vector_utils.normalize_vector(trained_vectors[feature])
-        return trained_vectors
+        line=[token for token in line if token in vectors]
+        for token_1 in line: # This is it for the training! Simple addition.
+            for token_2 in line:
+                if token_1 != token_2:
+                    trained_vectors[token_1]+=vectors[token_2]
 
-def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10):
+    for token in trained_vectors:
+        trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
+    return trained_vectors
+
+def train_vectors_window(data, vectors, window_size):
+    """
+    Here training is performed using a context window. Context window should be >= 5.
+    """
+    trained_vectors=copy.deepcopy(vectors)
+    valid_tokens = set(vectors.keys())
+    for i in range(len(data)):
+        if print_status and i % print_every == 0:
+            print('Processed ' + str(i))
+        line=data[i]
+        training = create_context_training(line, widow_size, valid_tokens)
+        for example in training:
+            target=example[0]
+            context=example[1]
+            for token in context: # The training is simply adding the vectors for the tokens in the context window to the target vector
+                trained_vectors[token]+=vectors[token]
+    for token in trained_vectors:
+        trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
+    return trained_vectors
+
+def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None):
     data=commons.get_data(in_file)
-    idf=compute_idf(data, min_count)
-    vectors = initialize_vectors(list(idf.keys()), idf, dim, seeds)
+    valid_terms = text_utils(data)
+    if print_status:
+        print('Building ' + str(len(valid_terms)) + ' term vectors')
+    vectors = initialize_vectors(valid_terms, dim, seeds)
 
     for i in range(2):
-        vectors = train_vectors(data, vectors) # Performs two training cycles
+        if window_size is None:
+            vectors = train_vectors(data, vectors) # Performs two training cycles
+        else:
+            vectors = train_vectors_window(data, vectors, window_size)
 
-    store.pickle_dict(vectors, out_dir, file_name)
+    commons.pickle_dict(vectors, out_dir, file_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -99,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
     parser.add_argument('-p','--print_status', help='Print progress during execution. False is off. Default is True', required=False, default=True)
     parser.add_argument('-pe','--print_every', help='How often to print status during exectuation. Default is every 500k lines.', required=False, default=500000)
+    parser.add_argument('-w','--window_size', help='If this is not set to None it will trigger training based on context window. Use at least 5 if you want to do this.', required=False, default=None)
 
     args = vars(parser.parse_args())
 
@@ -107,6 +114,8 @@ if __name__ == "__main__":
 
     if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
         from config_files.ri_config import  config
-        train(config['in_file'],config['out_dir'])
+        print_status = config['print_status']
+        print_every=500000
+        train(config['in_file'], config['out_dir'], file_name=config['file_name'], seeds=config['seeds'], dim=config['dim'], min_count=config['min_count'], window_size=config['window_size'])
     else:
-        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'])
+        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'], window_size=args['window_size'])
