@@ -20,25 +20,6 @@ from utils import text_utils
 print_every = 100000
 print_status = True
 
-def initialize_vectors(valid_tokens, dim, seeds):
-    """
-    This creates the initial random projection for each feature. You create initial
-    vector with dimensionality dim. Dim should be in the range 500-1000. You then
-    select n (n is determined by seeds) elements and set the value to 1 or -1
-    randomly. This performs the random projection.
-    """
-    vectors = {}
-
-    for i in range(len(valid_tokens)):
-        if print_status and i % print_every == 0:
-            print('Initializing ' + str(i))
-        token = valid_tokens[i]
-        vector=np.zeros(dim)
-        sample=random.sample(range(0,dim),seeds) # Grab the n random elements for random projection
-        for index in sample:
-            vector[index]=random.choice([-1.0,1.0]) # Set each element to +1 or -1 for random projection
-        vectors[token]=vector
-    return vectors
 
 def train_vectors(data, vectors):
     """
@@ -50,7 +31,7 @@ def train_vectors(data, vectors):
         if print_status and i % print_every == 0:
             print('Processed ' + str(i))
         line = data[i].split()
-        line=[token for token in line if token in vectors]
+        line = [token for token in line if token in vectors]
         for token_1 in line: # This is it for the training! Simple addition.
             for token_2 in line:
                 if token_1 != token_2:
@@ -64,28 +45,28 @@ def train_vectors_window(data, vectors, window_size):
     """
     Here training is performed using a context window. Context window should be >= 5.
     """
-    trained_vectors=copy.deepcopy(vectors)
+    trained_vectors = copy.deepcopy(vectors)
     valid_tokens = set(vectors.keys())
     for i in range(len(data)):
         if print_status and i % print_every == 0:
             print('Processed ' + str(i))
-        line=data[i]
+        line = data[i]
         training = create_context_training(line, widow_size, valid_tokens)
         for example in training:
-            target=example[0]
-            context=example[1]
-            for token in context: # The training is simply adding the vectors for the tokens in the context window to the target vector
-                trained_vectors[token]+=vectors[token]
+            target = example[0]
+            context = example[1]
+            for token in context: # The training is simply adding the vectors for the tokens in the context window to the vector for the target token
+                trained_vectors[target]+=vectors[token]
     for token in trained_vectors:
         trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
     return trained_vectors
 
 def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None):
-    data=commons.get_data(in_file)
-    valid_terms = text_utils(data)
+    data = commons.get_data(in_file)
+    valid_terms = text_utils.get_valid_terms(data, min_count)
     if print_status:
         print('Building ' + str(len(valid_terms)) + ' term vectors')
-    vectors = initialize_vectors(valid_terms, dim, seeds)
+    vectors = vector_utils.initialize_vectors(valid_terms, dim, seeds)
 
     for i in range(2):
         if window_size is None:
@@ -97,7 +78,7 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-in','--in_file', help='Input director and file name.', required=False, default='')
+    parser.add_argument('-in','--in_file', help='Input directory and file name. Expected format is one sentence per line. The assumption is that you have already cleaned the sentences.', required=False, default='')
     parser.add_argument('-out','--out_dir', help='Location to store the results.', required=False, default='')
     parser.add_argument('-name','--file_name', help='Name for the index when storing.', required=False, default='ri_index')
     parser.add_argument('-s','--seeds', help='Number of seeds for random projection indexing. Should be 10-50.', required=False, default=20)
@@ -115,7 +96,7 @@ if __name__ == "__main__":
     if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
         from config_files.ri_config import  config
         print_status = config['print_status']
-        print_every=500000
+        print_every = config['print_every']
         train(config['in_file'], config['out_dir'], file_name=config['file_name'], seeds=config['seeds'], dim=config['dim'], min_count=config['min_count'], window_size=config['window_size'])
     else:
         train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'], window_size=args['window_size'])

@@ -1,4 +1,5 @@
 import commons
+from collections import defaultdict
 
 stopwords = commons.get_data('../data/stoplist.txt')
 stopwords = [el.strip() for el in stopwords]

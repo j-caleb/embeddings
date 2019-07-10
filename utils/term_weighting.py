@@ -1,12 +1,12 @@
-import math
-from collections import defaultdict
-import text_utils
-
-def compute_idf(counts, n_docs):
-    idf = {}
-    for token in counts:
-        idf[token]=math.sqrt(n_docs/counts[token])
-    return idf
+# import math
+# from collections import defaultdict
+# import text_utils
+#
+# def compute_idf(counts, n_docs):
+#     idf = {}
+#     for token in counts:
+#         idf[token]=math.sqrt(n_docs/counts[token])
+#     return idf
 
 # def compute_log_entropy(data, min_count):
 #     """
