@@ -3,7 +3,7 @@ import os
 import operator
 
 def get_data(path):
-    f = open(path,'r')
+    f = open(path,'r',encoding='utf8')
     return f.read().split('\n')
 
 def pickle_dict(dict, out_dir, file_name):

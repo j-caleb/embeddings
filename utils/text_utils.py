@@ -1,4 +1,4 @@
-import commons
+from utils import commons
 from collections import defaultdict
 
 stopwords = commons.get_data('../data/stoplist.txt')
@@ -28,7 +28,7 @@ def get_valid_terms(data, min_count):
 def get_term_counts(data):
 	counts = defaultdict(float)
 	for line in data:
-		line = strip_stop_words(line).split()
+		line = strip_stopwords(line).split()
 		for token in line:
 			counts[token]+=1
 	return counts
@@ -39,20 +39,20 @@ def create_context_training(line, widow_size, valid_tokens):
 	before and after the target term with the width of the window being determined
 	by window_size.
 	"""
-    contexts = []
-    line = strip_nonvalid_tokens(line).split()
-    for i in range(len(line)):
-        target = line[i]
-        start = 0
-        end = len(line)
-        if i-window_size > 0:
-            start=i-window_size
-        if i+window_size+1<len(line):
-            end=i+window_size+1
-        before = line[start:i]
-        after = line[i+1:end]
-        contexts.append([target,before + after])
-    return contexts
+	contexts = []
+	line = strip_nonvalid_tokens(line).split()
+	for i in range(len(line)):
+		target = line[i]
+		start = 0
+		end = len(line)
+		if i-window_size > 0:
+			start=i-window_size
+		if i+window_size+1<len(line):
+			end=i+window_size+1
+		before = line[start:i]
+		after = line[i+1:end]
+		contexts.append([target,before + after])
+	return contexts
 
 # def get_document_term_frequency():
 # 	"""

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cosine
+import random
 
 def normalize_vector(vector):
     norm = np.linalg.norm(vector)
@@ -24,8 +25,6 @@ def initialize_vectors_random_projection(features, dim, seeds):
     features = list(features)
 
     for i in range(len(features)):
-        if print_status and i % print_every == 0:
-            print('Initializing ' + str(i))
         feature = features[i]
         vector=np.zeros(dim)
         sample=random.sample(range(0,dim),seeds) # Grab the n random elements for random projection

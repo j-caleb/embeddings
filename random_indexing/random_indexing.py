@@ -10,6 +10,7 @@ import math
 import random
 import pickle
 import argparse
+import copy
 
 import sys
 sys.path.append('../')
@@ -17,16 +18,15 @@ from utils import commons
 from utils import vector_utils
 from utils import text_utils
 
-print_every = 100000
-print_status = True
-
+# print_status = True
+# print_every = 500000
 
 def train_vectors(data, vectors):
     """
     For each feature in each line, add the feature to all other features. Conceptually,
     each co-occurance of two features moves the two features closer together.
     """
-    trained_vectors=copy.deepcopy(vectors)
+    trained_vectors = copy.deepcopy(vectors)
     for i in range(len(data)):
         if print_status and i % print_every == 0:
             print('Processed ' + str(i))
@@ -61,12 +61,18 @@ def train_vectors_window(data, vectors, window_size):
         trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
     return trained_vectors
 
-def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None):
+def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None):
     data = commons.get_data(in_file)
+    if sample is not None:
+        random.shuffle(data)
+        data = data[0:sample]
+    if print_status:
+        print('Getting valid terms')
     valid_terms = text_utils.get_valid_terms(data, min_count)
     if print_status:
+        print(str(len(valid_terms)) + ' valid terms\n')
         print('Building ' + str(len(valid_terms)) + ' term vectors')
-    vectors = vector_utils.initialize_vectors(valid_terms, dim, seeds)
+    vectors = vector_utils.initialize_vectors_random_projection(valid_terms, dim, seeds)
 
     for i in range(2):
         if window_size is None:
@@ -87,16 +93,17 @@ if __name__ == "__main__":
     parser.add_argument('-p','--print_status', help='Print progress during execution. False is off. Default is True', required=False, default=True)
     parser.add_argument('-pe','--print_every', help='How often to print status during exectuation. Default is every 500k lines.', required=False, default=500000)
     parser.add_argument('-w','--window_size', help='If this is not set to None it will trigger training based on context window. Use at least 5 if you want to do this.', required=False, default=None)
+    parser.add_argument('-spl','--sample', help='This will sample N setences from a file. If None then the entire file is used', required=False, default=None)
 
     args = vars(parser.parse_args())
 
-    print_every = args['print_every']
-    print_status = args['print_status']
-
     if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
-        from config_files.ri_config import  config
+        from data.config_files import ri_config
+        config = ri_config.config
         print_status = config['print_status']
         print_every = config['print_every']
-        train(config['in_file'], config['out_dir'], file_name=config['file_name'], seeds=config['seeds'], dim=config['dim'], min_count=config['min_count'], window_size=config['window_size'])
+        train(config['in_file'], config['out_dir'], file_name=config['file_name'], seeds=config['seeds'], dim=config['dim'], min_count=config['min_count'], window_size=config['window_size'], sample=config['sample'])
     else:
-        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'], window_size=args['window_size'])
+        print_status = args['print_status']
+        print_every = args['print_every']
+        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'], window_size=args['window_size'], sample=args['sample'])
