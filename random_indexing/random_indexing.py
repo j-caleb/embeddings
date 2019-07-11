@@ -4,33 +4,6 @@ Random Indexing by Magnus Sahlgren and Reflection Random Indexing and indirect
 inference by Cohen, Schvaneveldt, and Widdows. Random Indexing relies upon random
 projection to map objects (terms in a document, vertices in a network, etc.) to fixed
 dimensional vectors. This is a method for generating embeddings similar to word2vec.
-
-The input is expected to be JSON. The expectation is that there is a field that has
-the file_name and a field that contains the cleaned and tokenized text.
-
-The following modes are implemented and set using the mode flag.
-
-ri --> This is the original Random Indexing method. You initialize the document
-vectors using random projection. You initialize the term vectors to all zeros.
-When a term occurs in the document, add the document vector to the term vector.
-
-drri --> This is document based Random Indexing. You initialize the document vectors
-using random projection. The term vectors are initialized to zeros. When a term
-occurrs in the document, add the document vector to the term vector. Normalize the
-term vectors. In the next step, for each document, add the term vectors to the document
-vector. Normalize the document vectors. Finally, for each term add the document vector of
-each document in which it appears.
-
-cw --> This trains based on a sliding window. The motivation is that for long documents
-treating the entire document as context may not be desirable. For all of the terms,
-initialize using random projection. For each target term, obtain the terms within
-a window. Add all of the vectors for the terms in the window to the vector for the target term.
-
-trri --> This is term based Random Indexing with extra training cycles similar to drri.
-Initialize the term vectors with random projection. Generate document vectors by adding
-all of the terms vectors for the terms in the document. Normalize the document vectors.
-For each term, add the document vector where it occurs to its term vector.
-
 """
 
 import numpy as np
@@ -59,38 +32,61 @@ def add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_ve
         doc_vec = doc_vectors[doc[filename_field]]
         for term in doc[text_field]:
             term_vectors[term]+=doc_vec
-    for term in term_vectors:z
+    for term in term_vectors:
         term_vectors[term] = vector_utils.normalize_vector(term_vectors[term])
 
-def train_vectors(data, vectors):
+def train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
     """
-    For each feature in each line, add the feature to all other features. Conceptually,
-    each co-occurance of two features moves the two features closer together.
+    This is the original Random Indexing method. You initialize the document
+    vectors using random projection. You initialize the term vectors to all zeros.
+    When a term occurs in the document, add the document vector to the term vector.
+    This will generate useful term vectors, but the document vectors are not useful
+    as they are simply random projections.
     """
-    trained_vectors = copy.deepcopy(vectors)
-    for i in range(len(data)):
-        if print_status and i % print_every == 0:
-            print('Processed ' + str(i))
-        line = data[i].split()
-        line = [token for token in line if token in vectors]
-        for token_1 in line: # This is it for the training! Simple addition.
-            for token_2 in line:
-                if token_1 != token_2:
-                    trained_vectors[token_1]+=vectors[token_2]
+    term_vectors = vector_utils.initialize_vectors_zeros(valid_terms, dim)
+    doc_vectors = vector_utils.initialize_vectors_random_projection(file_names, dim, seeds)
+    add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors)
+    return term_vectors, doc_vectors
 
-    for token in trained_vectors:
-        trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
-    return trained_vectors
+def train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
+    """
+    This is term based Random Indexing with extra training cycles similar to drri.
+    Initialize the term vectors with random projection. Generate document vectors by adding
+    all of the terms vectors for the terms in the document. For each term, add the
+    document vector where it occurs to its term vector. This will generate useful
+    term vectors and document vectors.
+    """
+    term_vectors = vector_utils.initialize_vectors_random_projection(valid_terms, dim, seeds)
+    doc_vectors = vector_utils.initialize_vectors_zeros(file_names, dim)
+    add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
+    add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors)
+    add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
+    return term_vectors, doc_vectors
 
-def train_vectors_window(data, vectors, window_size):
+def train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
+    """
+    This is document based Random Indexing. You initialize the document vectors
+    using random projection. The term vectors are initialized to zeros. When a term
+    occurrs in the document, add the document vector to the term vector. Normalize the
+    term vectors. In the next step, for each document, add the term vectors to the document
+    vector. Normalize the document vectors. Finally, for each term add the document vector of
+    each document in which it appears.
+    """
+    doc_vectors = vector_utils.initialize_vectors_random_projection(file_names, dim, seeds)
+    term_vectors = vector_utils.initialize_vectors_zeros(valid_terms, dim)
+    add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors)
+    add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
+    add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors)
+    add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
+    return term_vectors, doc_vectors
+
+def train_vectors_sliding_window(data, vectors, window_size):
     """
     Here training is performed using a context window. Context window should be >= 5.
     """
     trained_vectors = copy.deepcopy(vectors)
     valid_tokens = set(vectors.keys())
     for i in range(len(data)):
-        if print_status and i % print_every == 0:
-            print('Processed ' + str(i))
         line = data[i]
         training = create_context_training(line, widow_size, valid_tokens)
         for example in training:
@@ -102,24 +98,45 @@ def train_vectors_window(data, vectors, window_size):
         trained_vectors[token] = vector_utils.normalize_vector(trained_vectors[token])
     return trained_vectors
 
+def train_vectors_metadata():
+    return True
+
+def get_valid_terms(documents, min_count):
+    sentences = [documents[doc][text_field] for doc in documents]
+    return get_valid_terms(sentences, min_count)
+
+def clean_documents(documents, valid_terms, text_field):
+    """
+    Splitting operations and valid term checks can happen many times depending
+    upon the mode. This just performs this step once.
+    """
+    for doc in documents:
+        text = doc[text_field]
+        text = [term for term in text.split() if term in valid_terms]
+        doc[text_field]=text
+
 def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None):
     data = commons.get_data(in_file)
+
     if sample is not None:
         random.shuffle(data)
         data = data[0:sample]
-    if print_status:
-        print('Getting valid terms')
-    valid_terms = text_utils.get_valid_terms(data, min_count)
-    if print_status:
-        print(str(len(valid_terms)) + ' valid terms\n')
-        print('Building ' + str(len(valid_terms)) + ' term vectors')
-    vectors = vector_utils.initialize_vectors_random_projection(valid_terms, dim, seeds)
 
-    for i in range(2):
-        if window_size is None:
-            vectors = train_vectors(data, vectors) # Performs two training cycles
-        else:
-            vectors = train_vectors_window(data, vectors, window_size)
+    valid_terms = get_valid_terms(documents, min_count)
+    documents = clean_documents(documents, valid_terms, text_field)
+
+    if mode == 'metadata':
+        train_vectors_metadata()
+    elif mode == 'window':
+        train_vectors_sliding_window(data, vectors, window_size)
+    else:
+        file_names = [documents[doc][filename_field] for doc in documents]
+        if mode == 'ri':
+            train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+        elif mode == 'trri':
+            train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+        elif mode == 'drri':
+        train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
 
     commons.pickle_dict(vectors, out_dir, file_name)
 

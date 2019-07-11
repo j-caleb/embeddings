@@ -32,3 +32,9 @@ def initialize_vectors_random_projection(features, dim, seeds):
             vector[index]=random.choice([-1.0,1.0]) # Set each element to +1 or -1 for random projection
         vectors[feature]=vector
     return vectors
+
+def initialize_vectors_zeros(features, dim):
+    vectors = {}
+    for feature in features:
+        vectors[feature] = np.zeros(dim)
+    return vectors
