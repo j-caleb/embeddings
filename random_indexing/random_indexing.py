@@ -1,8 +1,36 @@
 """
-This is an implementation of Random Indexing based on the paper Introduction to
-Random Indexing by Magnus Sahlgren. Random Indexing relies upon random projection
-to map objects (terms in a document, vertices in a network, etc.) to fixed
+This is an implementation of Random Indexing based on the papers Introduction to
+Random Indexing by Magnus Sahlgren and Reflection Random Indexing and indirect
+inference by Cohen, Schvaneveldt, and Widdows. Random Indexing relies upon random
+projection to map objects (terms in a document, vertices in a network, etc.) to fixed
 dimensional vectors. This is a method for generating embeddings similar to word2vec.
+
+The input is expected to be JSON. The expectation is that there is a field that has
+the file_name and a field that contains the cleaned and tokenized text.
+
+The following modes are implemented and set using the mode flag.
+
+ri --> This is the original Random Indexing method. You initialize the document
+vectors using random projection. You initialize the term vectors to all zeros.
+When a term occurs in the document, add the document vector to the term vector.
+
+drri --> This is document based Random Indexing. You initialize the document vectors
+using random projection. The term vectors are initialized to zeros. When a term
+occurrs in the document, add the document vector to the term vector. Normalize the
+term vectors. In the next step, for each document, add the term vectors to the document
+vector. Normalize the document vectors. Finally, for each term add the document vector of
+each document in which it appears.
+
+cw --> This trains based on a sliding window. The motivation is that for long documents
+treating the entire document as context may not be desirable. For all of the terms,
+initialize using random projection. For each target term, obtain the terms within
+a window. Add all of the vectors for the terms in the window to the vector for the target term.
+
+trri --> This is term based Random Indexing with extra training cycles similar to drri.
+Initialize the term vectors with random projection. Generate document vectors by adding
+all of the terms vectors for the terms in the document. Normalize the document vectors.
+For each term, add the document vector where it occurs to its term vector.
+
 """
 
 import numpy as np
@@ -18,8 +46,21 @@ from utils import commons
 from utils import vector_utils
 from utils import text_utils
 
-# print_status = True
-# print_every = 500000
+def add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors):
+    for doc in documents:
+        doc_vec = doc_vectors[doc[filename_field]]
+        for term in doc[text_field]:
+            doc_vec+=term_vectors[term]
+    for file_name in doc_vectors:
+        doc_vectors[file_name] = vector_utils.normalize_vector(doc_vectors[file_name])
+
+def add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors):
+    for doc in documents:
+        doc_vec = doc_vectors[doc[filename_field]]
+        for term in doc[text_field]:
+            term_vectors[term]+=doc_vec
+    for term in term_vectors:z
+        term_vectors[term] = vector_utils.normalize_vector(term_vectors[term])
 
 def train_vectors(data, vectors):
     """
