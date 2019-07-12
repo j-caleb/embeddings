@@ -1,10 +1,21 @@
 import pickle
 import os
 import operator
+import json
+
+def is_json(myjson):
+  try:
+    json_object = json.loads(myjson)
+  except ValueError:
+    return False
+  return True
 
 def get_data(path):
     f = open(path,'r',encoding='utf8')
-    return f.read().split('\n')
+    data = f.read().split('\n')
+    if is_json(data[0]):
+        data = [json.loads(line) for line in data]
+    return data
 
 def pickle_dict(dict, out_dir, file_name):
     if not out_dir.endswith('/'):
