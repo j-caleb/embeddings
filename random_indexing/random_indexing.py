@@ -101,9 +101,13 @@ def train_vectors_sliding_window(data, vectors, window_size):
 def train_vectors_metadata():
     return True
 
-def get_valid_terms(documents, min_count):
-    sentences = [documents[doc][text_field] for doc in documents]
-    return get_valid_terms(sentences, min_count)
+def get_valid_terms(documents, min_count, text_field):
+    print(documents[0])
+    if isinstance(documents[0][text_field], list):
+        for doc in documents:
+            doc[text_field]=' '.join(doc[text_field])
+    text = [doc[text_field] for doc in documents]
+    return get_valid_terms(text, min_count)
 
 def clean_documents(documents, valid_terms, text_field):
     """
@@ -115,20 +119,21 @@ def clean_documents(documents, valid_terms, text_field):
         text = [term for term in text.split() if term in valid_terms]
         doc[text_field]=text
 
-def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None):
-    data = commons.get_data(in_file)
+def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None, text_field='text', filename_field='file_name', mode='ri'):
+
+    documents = commons.get_data(in_file)
 
     if sample is not None:
-        random.shuffle(data)
-        data = data[0:sample]
+        random.shuffle(documents)
+        documents = documents[0:sample]
 
-    valid_terms = get_valid_terms(documents, min_count)
+    valid_terms = get_valid_terms(documents, min_count, text_field)
     documents = clean_documents(documents, valid_terms, text_field)
 
     if mode == 'metadata':
         train_vectors_metadata()
     elif mode == 'window':
-        train_vectors_sliding_window(data, vectors, window_size)
+        train_vectors_sliding_window(documents, vectors, window_size)
     else:
         file_names = [documents[doc][filename_field] for doc in documents]
         if mode == 'ri':
@@ -136,7 +141,7 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
         elif mode == 'trri':
             train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
         elif mode == 'drri':
-        train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+            train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
 
     commons.pickle_dict(vectors, out_dir, file_name)
 
@@ -151,7 +156,8 @@ if __name__ == "__main__":
     parser.add_argument('-p','--print_status', help='Print progress during execution. False is off. Default is True', required=False, default=True)
     parser.add_argument('-pe','--print_every', help='How often to print status during exectuation. Default is every 500k lines.', required=False, default=500000)
     parser.add_argument('-w','--window_size', help='If this is not set to None it will trigger training based on context window. Use at least 5 if you want to do this.', required=False, default=None)
-    parser.add_argument('-spl','--sample', help='This will sample N setences from a file. If None then the entire file is used', required=False, default=None)
+    parser.add_argument('-m','--mode', help='Determines the method for generating vectors. ri=Random Indexing, trri=term based Reflective Random Indexing, drri=document based Reflective Random Indexing, window=Random Indexing with sliding window, meta=Reflective Random Indexing with metadata', required=False, default=500000)
+
 
     args = vars(parser.parse_args())
 
@@ -160,6 +166,8 @@ if __name__ == "__main__":
         config = ri_config.config
         print_status = config['print_status']
         print_every = config['print_every']
+        print(config)
+        print(config['file_name'])
         train(config['in_file'], config['out_dir'], file_name=config['file_name'], seeds=config['seeds'], dim=config['dim'], min_count=config['min_count'], window_size=config['window_size'], sample=config['sample'])
     else:
         print_status = args['print_status']
