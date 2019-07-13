@@ -20,6 +20,13 @@ Note: This is very early work in progress.
 
 Status: ~80% complete
 
+TODO
+
+Save document vectors using locality sensitive hashing. Currently, I am not saving them as there is little point without it.<br/>
+Finish theory notebook and application notebook<br/>
+Add term weighting for Random Indexing ... idf and log entropy<br/>
+Add unit testing
+
 Random Indexing is a method for creating embeddings. Random Indexing emerged as an alternative to LSA, which was very computationally demanding at the time. Random Indexing utilizes random projection to perform the dimensionality reduction step instead of SVD as with LSA. Random projection is a very inexpensive step, which makes Random Indexing highly scalable. With Random Indexing you select the dimensionality of the vector (500-1000). You then randomly set a small number of the elements to +1 or -1. At this point you have projected whatever you are modeling into a reduced dimensional space. The training procedure is simple addition based on co-occurrence. The method is also very flexible and can be applied in many different ways. Below are the variations that I have implemented.
 
 Random Indexing - This is the initial method. You treat a block of text as context and give it a unique identifier (could be sentence, abstract, entire document, etc.). You initialize the document vectors using random projection. For each term in the document add the document vector. This produces term vectors only.
@@ -30,4 +37,4 @@ Document-based Reflective Random Indexing (DRRI) - The Relective in Reflective R
 
 Term-based Reflective Random Indexing (TRRI) - This is similar to DRRI, but the order is different. Here you begin with using random projection on the term vectors.
 
-Metadata Reflective Random Indexing (MRRI) - This implementation highlights the flexibility of Random Indexing. Here I build associations between terms in an abstract and document labels.
+Metadata Reflective Random Indexing (MRRI) - This implementation highlights the flexibility of Random Indexing. This enables you to associate two different sets of data. For example, you could associate text and document labels or outgoing citations with the document labels.

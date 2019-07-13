@@ -35,7 +35,7 @@ def add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_ve
     for term in term_vectors:
         term_vectors[term] = vector_utils.normalize_vector(term_vectors[term])
 
-def train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
+def train_vectors_ri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms):
     """
     This is the original Random Indexing method. You initialize the document
     vectors using random projection. You initialize the term vectors to all zeros.
@@ -48,7 +48,7 @@ def train_vectors_ri(documents, text_field, filename_field, min_count, dim, seed
     add_doc_to_terms(documents, text_field, filename_field, term_vectors, doc_vectors)
     return term_vectors
 
-def train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
+def train_vectors_trri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms):
     """
     This is term based Random Indexing with extra training cycles similar to drri.
     Initialize the term vectors with random projection. Generate document vectors by adding
@@ -63,7 +63,7 @@ def train_vectors_trri(documents, text_field, filename_field, min_count, dim, se
     add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
     return term_vectors, doc_vectors
 
-def train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms):
+def train_vectors_drri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms):
     """
     This is document based Random Indexing. You initialize the document vectors
     using random projection. The term vectors are initialized to zeros. When a term
@@ -104,7 +104,7 @@ def train_vectors_sliding_window(documents, text_field, valid_terms, window_size
         trained_vectors[term] = vector_utils.normalize_vector(trained_vectors[term])
     return trained_vectors
 
-def train_vectors_metadata():
+def train_vectors_metadata(documents, text_field, filename_field, dim, seeds, valid_terms, meta_min_count, metadata):
     return True
 
 def get_valid_terms(documents, min_count, text_field):
@@ -125,7 +125,10 @@ def clean_documents(documents, valid_terms, text_field):
         doc[text_field]=text
     return documents
 
-def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None, text_field='text', filename_field='file_name', mode='ri'):
+def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None, text_field='text', filename_field='file_name', mode='ri', metadata='labels', meta_min_count=10):
+    """
+    Note: Currently I am not saving the document vectors. To make this practical I need to add locality sensitive hashing for fast nearest neighbor search.
+    """
     documents = commons.get_data(in_file)
 
     if sample is not None:
@@ -140,15 +143,15 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
     doc_vectors = None
 
     if mode == 'metadata':
-        train_vectors_metadata()
+        train_vectors_metadata(documents, text_field, filename_field, dim, seeds, valid_terms, meta_min_count, metadata)
     elif mode == 'window':
         term_vectors = train_vectors_sliding_window(documents, text_field, valid_terms, window_size, dim, seeds)
     elif mode == 'ri':
-        term_vectors = train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+        term_vectors = train_vectors_ri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
     elif mode == 'trri':
-        term_vectors, doc_vectors = train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+        term_vectors, doc_vectors = train_vectors_trri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
     elif mode == 'drri':
-        term_vectors, doc_vectors = train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+        term_vectors, doc_vectors = train_vectors_drri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
 
     commons.pickle_dict(term_vectors, out_dir, file_name)
 
@@ -168,6 +171,8 @@ if __name__ == "__main__":
     parser.add_argument('-m','--mode', help='Determines the method for generating vectors. ri=Random Indexing, trri=term based Reflective Random Indexing, drri=document based Reflective Random Indexing, window=Random Indexing with sliding window, meta=Reflective Random Indexing with metadata', required=False, default=500000)
     parser.add_argument('-tx','--text_field', help='Name of the field that contains the text to be proecessed.', required=False, default=None)
     parser.add_argument('-fn','--filename_field', help='Name of the field that contains the unique identifier for a document.', required=False, default=None)
+    parser.add_argument('-meta','--metadata', help='Name of metadata field.', required=False, default=None)
+    parser.add_argument('-mmin','--meta_min_count', help='Minimum count for metadata.', required=False, default=None)
 
     args = vars(parser.parse_args())
 
