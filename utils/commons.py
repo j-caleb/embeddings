@@ -11,7 +11,7 @@ def is_json(myjson):
   return True
 
 def get_data(path):
-    f = open(path,'r',encoding='utf8')
+    f = open(path,'r',encoding='utf-8')
     data = f.read().split('\n')
     if is_json(data[0]):
         data = [json.loads(line) for line in data]

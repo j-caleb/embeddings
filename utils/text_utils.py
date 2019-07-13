@@ -23,12 +23,18 @@ def get_valid_terms(data, min_count):
 	remove = [token for token in counts if counts[token] <= min_count]
 	for token in remove:
 		del counts[token]
-	return list(counts.keys())
+	return set(counts.keys())
 
-def get_term_counts(data):
+def get_term_counts(data, document_frequency=True):
+	"""
+	If document_frequency is enabled then the number of documents in which a term
+	occurs is returned. If disabled then you obtain the term frequency.
+	"""
 	counts = defaultdict(float)
 	for line in data:
 		line = strip_stopwords(line).split()
+		if document_frequency:
+			line = set(line)
 		for token in line:
 			counts[token]+=1
 	return counts

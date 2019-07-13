@@ -5,8 +5,8 @@ To use the config file settings simply exectute random_indexing.py with no argum
 
 config = {}
 
-config['in_file']="/Users/joshuacgoodwin/Documents/github_projects/data/sentences_shuf.txt"
-config['out_dir']="/Users/joshuacgoodwin/Documents/github_projects/data/models/"
+config['in_file']="F:\\github_projects\\data\\embeddings\\medline_sentences\\docs_test.json"
+config['out_dir']="F:\\github_projects\\data\\embeddings\\medline_sentences\\models\\"
 config['file_name']='ri_index'
 config['seeds']=20
 config['dim']=500
