@@ -80,14 +80,21 @@ def train_vectors_drri(documents, text_field, filename_field, min_count, dim, se
     add_terms_to_doc(documents, text_field, filename_field, term_vectors, doc_vectors)
     return term_vectors, doc_vectors
 
-def train_vectors_sliding_window(documents, text_field, valid_terms, window_size):
+def train_vectors_sliding_window(documents, text_field, valid_terms, window_size, dim, seeds):
     """
-    Here training is performed using a context window. Context window should be >= 5.
+    Training is performed using a context window. For each term, grab the neighbors
+    before and after the term. The width is determined by window_size. Add all of
+    the vectors for the terms in the context window and add these to the target
+    term. The motivation is that for large documents it may not be advisable to
+    treat the entire document as context.
     """
+    print('training sliding window')
     vectors = vector_utils.initialize_vectors_random_projection(valid_terms, dim, seeds)
     trained_vectors = copy.deepcopy(vectors)
     for i in range(len(documents)):
-        training = text_utils.create_context_training(documents[i][text_field], widow_size, valid_terms)
+        if i % 1000 == 0:
+            print(i)
+        training = text_utils.create_context_training(documents[i][text_field], window_size, valid_terms) # For each term in the document generate a context window
         for example in training:
             target = example[0]
             context = example[1]
@@ -124,23 +131,27 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
     if sample is not None:
         random.shuffle(documents)
         documents = documents[0:sample]
+
     valid_terms = get_valid_terms(documents, min_count, text_field)
     documents = clean_documents(documents, valid_terms, text_field)
+    file_names = [doc[filename_field] for doc in documents]
+
+    term_vectors = None
+    doc_vectors = None
+
     if mode == 'metadata':
         train_vectors_metadata()
     elif mode == 'window':
-        train_vectors_sliding_window(documents, vectors, window_size)
-    else:
-        file_names = [doc[filename_field] for doc in documents]
-        if mode == 'ri':
-            term_vectors = train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
-            commons.pickle_dict(term_vectors, out_dir, file_name)
-        elif mode == 'trri':
-            term_vectors, doc_vectors = train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
-            commons.pickle_dict(term_vectors, out_dir, file_name)
-        elif mode == 'drri':
-            term_vectors, doc_vectors = train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
-            commons.pickle_dict(term_vectors, out_dir, file_name)
+        term_vectors = train_vectors_sliding_window(documents, text_field, valid_terms, window_size, dim, seeds)
+    elif mode == 'ri':
+        term_vectors = train_vectors_ri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+    elif mode == 'trri':
+        term_vectors, doc_vectors = train_vectors_trri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+    elif mode == 'drri':
+        term_vectors, doc_vectors = train_vectors_drri(documents, text_field, filename_field, min_count, dim, seeds, file_names, valid_terms)
+
+    commons.pickle_dict(term_vectors, out_dir, file_name)
+
 
 
 if __name__ == "__main__":

@@ -14,7 +14,8 @@ def strip_nonvalid_tokens(line, valid_tokens):
 	"""
 	This strips stopwords and also any tokens that are not valid.
 	"""
-	line=line.split()
+	if type(line) is not list:
+		line=line.split()
 	line=[token for token in line if token not in stopwords and token in valid_tokens]
 	return ' '.join(line)
 
@@ -39,14 +40,14 @@ def get_term_counts(data, document_frequency=True):
 			counts[token]+=1
 	return counts
 
-def create_context_training(line, widow_size, valid_tokens):
+def create_context_training(line, window_size, valid_tokens):
 	"""
 	This is used to select terms based on a context window. The terms are selected
 	before and after the target term with the width of the window being determined
 	by window_size.
 	"""
 	contexts = []
-	line = strip_nonvalid_tokens(line).split()
+	line = strip_nonvalid_tokens(line, valid_tokens).split()
 	for i in range(len(line)):
 		target = line[i]
 		start = 0
