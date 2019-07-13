@@ -18,5 +18,5 @@ config['sample']=None
 config['mode']='meta'
 config['text_field']='sent_tkns'
 config['filename_field']='file_name'
-config['metadata']='labels'
+config['metadata_field']='labels'
 config['meta_min_count']=100

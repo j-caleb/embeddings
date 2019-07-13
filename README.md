@@ -26,6 +26,7 @@ Save document vectors using locality sensitive hashing. Currently, I am not savi
 Finish theory notebook and application notebook<br/>
 Add term weighting for Random Indexing ... idf and log entropy<br/>
 Add unit testing
+Add logging to print status during training
 
 Random Indexing is a method for creating embeddings. Random Indexing emerged as an alternative to LSA, which was very computationally demanding at the time. Random Indexing utilizes random projection to perform the dimensionality reduction step instead of SVD as with LSA. Random projection is a very inexpensive step, which makes Random Indexing highly scalable. With Random Indexing you select the dimensionality of the vector (500-1000). You then randomly set a small number of the elements to +1 or -1. At this point you have projected whatever you are modeling into a reduced dimensional space. The training procedure is simple addition based on co-occurrence. The method is also very flexible and can be applied in many different ways. Below are the variations that I have implemented.
 
