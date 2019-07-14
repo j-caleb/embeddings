@@ -105,12 +105,9 @@ def train_vectors_sliding_window(documents, text_field, valid_terms, window_size
     term. The motivation is that for large documents it may not be advisable to
     treat the entire document as context.
     """
-    print('training sliding window')
     vectors = vector_utils.initialize_vectors_random_projection(valid_terms, dim, seeds)
     trained_vectors = copy.deepcopy(vectors)
     for i in range(len(documents)):
-        if i % 1000 == 0:
-            print(i)
         training = text_utils.create_context_training(documents[i][text_field], window_size, valid_terms) # For each term in the document generate a context window
         for example in training:
             target = example[0]
@@ -121,21 +118,21 @@ def train_vectors_sliding_window(documents, text_field, valid_terms, window_size
         trained_vectors[term] = vector_utils.normalize_vector(trained_vectors[term])
     return trained_vectors
 
-def train_vectors_metadata(documents, text_field, metadata_field, dim, seeds, valid_terms, meta_min_count:
+def train_vectors_metadata(documents, text_field, metadata_field, dim, seeds, valid_terms, meta_min_count):
     """
     This implementation is associating text with some form of metadata. The assumption
     is that the metadata is in a list. This implementation is similar to DRRI, but is
     performed on text & metadata.
     """
-    lbl_cnt = defaultdict(int) # Filtering metadata. Not happy with this. Need to fix text_utils to handle this
+    lbl_cnt = defaultdict(float) # Filtering metadata. Not happy with this. Need to fix text_utils to handle this
     for doc in documents:
-        for lbl in doc[metadata]:
+        for lbl in doc[metadata_field]:
             lbl_cnt[lbl]+=1
     remove = [lbl for lbl in lbl_cnt if lbl_cnt[lbl] <= meta_min_count]
     for lbl in remove:
         del lbl_cnt[lbl]
-    for doc in docs:
-        doc[metadata]=[lbl for lbl in doc[metadata] if lbl in lbl_cnt]
+    for doc in documents:
+        doc[metadata_field]=[lbl for lbl in doc[metadata_field] if lbl in lbl_cnt]
 
     meta_vectors = vector_utils.initialize_vectors_random_projection(list(lbl_cnt.keys()), dim, seeds)
     term_vectors = vector_utils.initialize_vectors_zeros(valid_terms, dim)
@@ -163,7 +160,7 @@ def clean_documents(documents, valid_terms, text_field):
         doc[text_field]=text
     return documents
 
-def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=10, window_size=None, sample=None, text_field='text', filename_field='file_name', mode='ri', metadata_field='labels', meta_min_count=10):
+def train(in_file, out_dir, seeds=20, dim=500, min_count=10, window_size=None, sample=None, text_field='text', filename_field='file_name', mode='ri', metadata_field='labels', meta_min_count=10):
     """
     Note: Currently I am not saving the document vectors. To make this practical I need to add locality sensitive hashing for fast nearest neighbor search.
     """
@@ -179,17 +176,23 @@ def train(in_file, out_dir, file_name='ri_index', seeds=20, dim=500, min_count=1
 
     term_vectors = None
     doc_vectors = None
+    file_name = None
 
-    if mode == 'metadata':
-        train_vectors_metadata(documents, text_field, metadata_field, dim, seeds, valid_terms, meta_min_count)
-    elif mode == 'window':
+    if mode == 'window':
         term_vectors = train_vectors_sliding_window(documents, text_field, valid_terms, window_size, dim, seeds)
+        file_name = 'term_index_window'
     elif mode == 'ri':
         term_vectors = train_vectors_ri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
+        file_name = 'term_index_ri'
     elif mode == 'trri':
         term_vectors, doc_vectors = train_vectors_trri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
+        file_name = 'term_index_trri'
     elif mode == 'drri':
         term_vectors, doc_vectors = train_vectors_drri(documents, text_field, filename_field, dim, seeds, file_names, valid_terms)
+        file_name = 'term_index_drri'
+    else:
+        print(mode + ' is not a recognized option.')
+        return
 
     commons.pickle_dict(term_vectors, out_dir, file_name)
 
@@ -197,14 +200,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-in','--in_file', help='Input directory and file name. Expected format is one sentence per line. The assumption is that you have already cleaned the sentences.', required=False, default='')
     parser.add_argument('-out','--out_dir', help='Location to store the results.', required=False, default='')
-    parser.add_argument('-name','--file_name', help='Name for the index when storing.', required=False, default='ri_index')
     parser.add_argument('-s','--seeds', help='Number of seeds for random projection indexing. Should be 10-50.', required=False, default=20)
     parser.add_argument('-d','--dim', help='Number of dimensions for vectors. Range should be 500-1000', required=False, default=500)
     parser.add_argument('-min','--min_count', help='Minimum frequency of occurance threshold.', required=False, default=10)
-    parser.add_argument('-p','--print_status', help='Print progress during execution. False is off. Default is True', required=False, default=True)
-    parser.add_argument('-pe','--print_every', help='How often to print status during exectuation. Default is every 500k lines.', required=False, default=500000)
     parser.add_argument('-w','--window_size', help='If this is not set to None it will trigger training based on context window. Use at least 5 if you want to do this.', required=False, default=None)
-    parser.add_argument('-m','--mode', help='Determines the method for generating vectors. ri=Random Indexing, trri=term based Reflective Random Indexing, drri=document based Reflective Random Indexing, window=Random Indexing with sliding window, meta=Reflective Random Indexing with metadata', required=False, default=500000)
+    parser.add_argument('-m','--mode', help='Determines the method for generating vectors. ri=Random Indexing, trri=term based Reflective Random Indexing, drri=document based Reflective Random Indexing, window=Random Indexing with sliding window', required=False, default=500000)
     parser.add_argument('-tx','--text_field', help='Name of the field that contains the text to be proecessed.', required=False, default=None)
     parser.add_argument('-fn','--filename_field', help='Name of the field that contains the unique identifier for a document.', required=False, default=None)
     parser.add_argument('-meta','--metadata_field', help='Name of metadata field. Metadata must be a list.', required=False, default=None)
@@ -215,11 +215,9 @@ if __name__ == "__main__":
     if args['in_file'] == '': # If you execute with no arguments it will defualt to using a config file
         from data.config_files import ri_config
         config = ri_config.config
-        print_status = config['print_status']
-        print_every = config['print_every']
-        train((config['in_file'], 
+
+        (train(config['in_file'],
             config['out_dir'],
-            file_name=config['file_name'],
             seeds=config['seeds'],
             dim=config['dim'],
             min_count=config['min_count'],
@@ -231,6 +229,15 @@ if __name__ == "__main__":
             metadata_field=config['metadata_field'],
             meta_min_count=config['meta_min_count']))
     else:
-        print_status = args['print_status']
-        print_every = args['print_every']
-        train(args['in_file'], args['out_dir'], file_name=args['file_name'], seeds=args['seeds'], dim=args['dim'], min_count=args['min_count'], window_size=args['window_size'], sample=args['sample'])
+        (train(args['in_file'],
+            args['out_dir'],
+            seeds=args['seeds'],
+            dim=args['dim'],
+            min_count=args['min_count'],
+            window_size=args['window_size'],
+            sample=args['sample'],
+            text_field=args['text_field'],
+            filename_field=args['filename_field'],
+            mode=args['mode'],
+            metadata_field=args['metadata_field'],
+            meta_min_count=args['meta_min_count']))

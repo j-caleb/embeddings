@@ -32,7 +32,4 @@ def list_splitter(a, n):
     return list((a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)))
 
 def sort_dictionary(data,reverse=True):
-    if reverse:
-        return sorted(data.items(), key=operator.itemgetter(1), reverse=True)
-    else:
-        return sorted(data.items(), key=operator.itemgetter(1))
+    return sorted(data.items(), key=operator.itemgetter(1), reverse=reverse)

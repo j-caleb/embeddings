@@ -18,15 +18,16 @@ Note: This is very early work in progress.
 
 ## Random Indexing
 
-Status: ~80% complete
+Status: ~60% complete
 
 TODO
 
 Save document vectors using locality sensitive hashing. Currently, I am not saving them as there is little point without it.<br/>
 Finish theory notebook and application notebook<br/>
 Add term weighting for Random Indexing ... idf and log entropy<br/>
-Add unit testing
-Add logging to print status during training
+Add unit testing<br/>
+Add logging to print status during training<br/>
+Finish mrri
 
 Random Indexing is a method for creating embeddings. Random Indexing emerged as an alternative to LSA, which was very computationally demanding at the time. Random Indexing utilizes random projection to perform the dimensionality reduction step instead of SVD as with LSA. Random projection is a very inexpensive step, which makes Random Indexing highly scalable. With Random Indexing you select the dimensionality of the vector (500-1000). You then randomly set a small number of the elements to +1 or -1. At this point you have projected whatever you are modeling into a reduced dimensional space. The training procedure is simple addition based on co-occurrence. The method is also very flexible and can be applied in many different ways. Below are the variations that I have implemented.
 
@@ -37,5 +38,3 @@ Random Indexing with sliding window - It may not be advantageous to always use a
 Document-based Reflective Random Indexing (DRRI) - The Relective in Reflective Random Indexing simply means that more iterations are used in training. With DRRI you begin by applying random projection to the documents. For each term in the document add the document vector to the term vector. Next, for each document, add all of the term vectors for the terms in the document to the document vector. Finally, you perform the first step again and add the document vectors to the terms vectors for each term in the document. This generates both term and document vectors.
 
 Term-based Reflective Random Indexing (TRRI) - This is similar to DRRI, but the order is different. Here you begin with using random projection on the term vectors.
-
-Metadata Reflective Random Indexing (MRRI) - This implementation highlights the flexibility of Random Indexing. This enables you to associate two different sets of data. For example, you could associate text and document labels or outgoing citations with the document labels.
